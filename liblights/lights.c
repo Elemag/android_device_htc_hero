@@ -122,12 +122,12 @@ void init_globals(void)
     g_haveAmberLed = (access(AMBER_LED_FILE, W_OK) == 0) ? 1 : 0;
 
     /* attempt to active the trackball LED      */
-    //if (g_haveTrackballLight){
+    if (g_haveTrackballLight){
         // activate it
-    //	write_int(TRACKBALL_FILE, 3);
+	write_int(TRACKBALL_FILE, 3);
         // then close it
-    //  write_int(TRACKBALL_FILE, 0);
-    //}
+        write_int(TRACKBALL_FILE, 0);
+    }
 }
 
 
@@ -212,7 +212,7 @@ static int
 set_trackball_blink_locked(struct light_device_t* dev,
         struct light_state_t const* state)
 {
-    int bright, blink, onMS, offMS;
+    int blink, onMS, offMS;
 
     switch(state->flashMode) {
 	case LIGHT_FLASH_TIMED:
@@ -225,16 +225,11 @@ set_trackball_blink_locked(struct light_device_t* dev,
 	    offMS = 0;
 	    break;
     }
-
     if (onMS > 0 && offMS >0) {
-	bright = 4;
-	blink = 4;
+	blink = 6;
     } else {
-	bright = 0;
 	blink = 0;
     }
-    
-    write_int(TRACKBALL_FILE, bright);
     write_int(TRACKBALL_BLINK_FILE, blink);
     return 0;
 }
@@ -334,7 +329,6 @@ handle_speaker_battery_locked(struct light_device_t* dev)
     } else {
 	if (g_haveTrackballLight) {
 	    set_trackball_blink_locked(dev, &g_notification);
-	} else {
 	    set_speaker_light_locked(dev, &g_notification);
 	}
     }
@@ -348,6 +342,22 @@ set_light_battery(struct light_device_t* dev,
     g_battery = *state;
     if (g_haveTrackballLight) {
         set_speaker_light_locked(dev, state);
+    }
+    handle_speaker_battery_locked(dev);
+    pthread_mutex_unlock(&g_lock);
+    return 0;
+}
+
+static int
+set_light_notifications(struct light_device_t* dev,
+        struct light_state_t const* state)
+{
+    pthread_mutex_lock(&g_lock);
+    g_notification = *state;
+    LOGV("set_light_notifications g_trackball=%d color=0x%08x",
+            g_trackball, state->color);
+    if (g_haveTrackballLight) {
+        handle_trackball_light_locked(dev);
     }
     handle_speaker_battery_locked(dev);
     pthread_mutex_unlock(&g_lock);
@@ -374,21 +384,6 @@ set_light_attention(struct light_device_t* dev,
     return 0;
 }
 
-static int
-set_light_notifications(struct light_device_t* dev,
-        struct light_state_t const* state)
-{
-    pthread_mutex_lock(&g_lock);
-    g_notification = *state;
-    LOGV("set_light_notifications g_trackball=%d color=0x%08x",
-            g_trackball, state->color);
-    if (g_haveTrackballLight) {
-        handle_trackball_light_locked(dev);
-    }
-    handle_speaker_battery_locked(dev);
-    pthread_mutex_unlock(&g_lock);
-    return 0;
-}
 
 /** Close the lights device */
 static int
